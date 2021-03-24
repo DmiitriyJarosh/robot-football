@@ -40,14 +40,14 @@ def _generate_robots(cnt=6):
     # for i in range(cnt):
     #     if constants.RANDOM_SEED is not None:
     #         random.seed(constants.RANDOM_SEED * (i + 1))
-    for i in range(2):
-        for j in range(3):
-            robot = Robot(constants.x_start_left + 2*i, constants.y_start_left + 2*j, constants.theta_start, Color.WHITE)
+    for i in range(12):
+        if i % 2 == 0:
+            robot = Robot(constants.x_start_left + i - i / 3, constants.y_start_left, constants.theta_start,
+                          Color.WHITE)
             robots.append(robot)
-
-    for i in range(2):
-        for j in range(3):
-            robot = Robot(constants.x_start_right - 2*i, constants.y_start_right + 2*j, constants.theta_start, Color.YELLOW)
+        else:
+            robot = Robot(constants.x_start_left + i - i / 3, constants.y_start_left, constants.theta_start,
+                          Color.YELLOW)
             robots.append(robot)
 
     return robots
@@ -77,7 +77,7 @@ def _draw_scene(robots: List[Robot], ball: Ball, obstacles: List[MovingObstacle]
     return screen, screen_picture
 
 
-def run_simulation(robots, ball, obstacles, simulation_delay=10, enable_detection=True, drawable_obs_avoidance=False):
+def run_simulation(robots, ball, obstacles, simulation_delay=10, enable_detection=False, drawable_obs_avoidance=False):
     start_time = time.time()
     frames = 0
     dt = constants.dt
@@ -101,7 +101,7 @@ def run_simulation(robots, ball, obstacles, simulation_delay=10, enable_detectio
             barriers_predicted_positions = cast_detector_coordinates(barriers_predicted_positions)
         else:
             ball_predicted_positions = [ball.get_pos()]
-            barriers_predicted_positions = [barrier.get_pos() for barrier in obstacles]
+            barriers_predicted_positions = [barrier.get_pos() for barrier in robots]
 
         # Planning
         #
@@ -115,12 +115,13 @@ def run_simulation(robots, ball, obstacles, simulation_delay=10, enable_detectio
         # in this 'while' cycle if time of caliing obstacle_avoidance() is not reached yet.
 
         for index, robot in enumerate(robots):
+            obstacles = [i.get_pos() for i in robots if i != robot]
             if drawable_obs_avoidance:
                 target_x, target_y = drawable_obstacle_avoidance(
-                    screen, robot, ball_predicted_positions, barriers_predicted_positions)
+                    screen, robot, ball_predicted_positions, obstacles)
             else:
                 target_x, target_y = obstacle_avoidance(
-                    robot.get_pos(), robot.angle, ball_predicted_positions, barriers_predicted_positions)
+                    robot.get_pos(), robot.angle, ball_predicted_positions, obstacles)
             # target_x, target_y = obstacle_avoidance_simple(ball_predicted_positions)
             robot_targets[index] = (target_x, target_y)
 
@@ -132,8 +133,8 @@ def run_simulation(robots, ball, obstacles, simulation_delay=10, enable_detectio
 
         ball.move(dt)
 
-        for player in obstacles:
-            player.move(dt)
+        # for player in obstacles:
+        #     player.move(dt)
 
         frames += 1
         cur_time = time.time()
@@ -143,8 +144,10 @@ def run_simulation(robots, ball, obstacles, simulation_delay=10, enable_detectio
         out.write(screen)
         cv2.imshow('robot football',  cv2.cvtColor(screen, cv2.COLOR_BGR2RGB))
 
+        obstacles = []
         for robot in robots:
             dist_to_obstacle = robot.get_closest_dist_to_obstacle(obstacles)
+            obstacles.append(robot)
             dist_to_target = robot.get_dist_to_target(ball)
             if dist_to_obstacle < 0.001 or dist_to_target < MovingObstacle.RADIUS + Robot.RADIUS:
                 if dist_to_obstacle < 0.001:
